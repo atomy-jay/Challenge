@@ -47,7 +47,38 @@ function MedalBadge({rank}){
   const m=rank===1?{bg:C.gold,fg:"#fff",txt:"🥇"}:rank===2?{bg:C.silver,fg:"#fff",txt:"🥈"}:rank===3?{bg:C.bronze,fg:"#fff",txt:"🥉"}:{bg:C.blueLight,fg:C.blue,txt:String(rank)};
   return <div style={{width:36,height:36,borderRadius:9,flexShrink:0,background:m.bg,color:m.fg,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:rank<=3?18:13,marginRight:12,border:rank<=3?"none":`1px solid ${C.border}`}}>{m.txt}</div>;
 }
-function LangSwitcher({lang,setLang}){return <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{LANGS.map(l=><button key={l.code} onClick={()=>setLang(l.code)} style={{background:lang===l.code?C.blue:"none",border:`1px solid ${lang===l.code?C.blue:C.border}`,borderRadius:6,padding:"5px 10px",fontSize:12,fontWeight:700,color:lang===l.code?C.white:C.textSoft,cursor:"pointer"}}>{l.label}</button>)}</div>;}
+function LangSwitcher({lang,setLang}){
+  const[open,setOpen]=useState(false);
+  const ref=useCallback(node=>{
+    if(!node)return;
+    const handler=e=>{if(!node.contains(e.target))setOpen(false);};
+    document.addEventListener("mousedown",handler);
+    document.addEventListener("touchstart",handler);
+    return()=>{document.removeEventListener("mousedown",handler);document.removeEventListener("touchstart",handler);};
+  },[]);
+  const current=LANGS.find(l=>l.code===lang)||LANGS[0];
+  return(
+    <div style={{position:"relative"}} ref={ref}>
+      <button onClick={()=>setOpen(p=>!p)}
+        style={{display:"flex",alignItems:"center",gap:6,background:C.white,border:`1.5px solid ${C.border}`,borderRadius:9,padding:"7px 12px",fontSize:13,fontWeight:700,color:C.text,cursor:"pointer",minWidth:72}}>
+        <span style={{fontSize:15}}>🌐</span>
+        <span>{current.label}</span>
+        <span style={{fontSize:10,color:C.textSoft,marginLeft:2}}>{open?"▲":"▼"}</span>
+      </button>
+      {open&&(
+        <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:C.white,border:`1.5px solid ${C.border}`,borderRadius:12,boxShadow:"0 8px 24px rgba(0,0,0,0.10)",zIndex:200,overflow:"hidden",minWidth:110}}>
+          {LANGS.map(l=>(
+            <button key={l.code} onClick={()=>{setLang(l.code);setOpen(false);}}
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:lang===l.code?C.blueLight:"none",border:"none",padding:"11px 16px",fontSize:14,fontWeight:lang===l.code?700:400,color:lang===l.code?C.blue:C.text,cursor:"pointer",textAlign:"left"}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:lang===l.code?C.blue:"transparent",flexShrink:0,display:"inline-block"}}/>
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 function Logo({lang}){return(
   <div style={{marginBottom:24}}>
     <div style={{marginBottom:14,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
