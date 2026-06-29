@@ -509,7 +509,8 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
   const[adminMsg,flashAdmin]=useMsg();
   const[activeTab,setActiveTab]=useState("leaderboard");
   const[rankTab,setRankTab]=useState("overall");
-  const[noticeForm,setNoticeForm]=useState({title:"",content:"",language:"all",video_url:""});
+  const initNoticeForm=()=>({_tab:"all",all:{title:"",content:"",video_url:""},en:{title:"",content:"",video_url:""},de:{title:"",content:"",video_url:""},es:{title:"",content:"",video_url:""},ro:{title:"",content:"",video_url:""},ru:{title:"",content:"",video_url:""}});
+  const[noticeForm,setNoticeForm]=useState(initNoticeForm());
   const[noticeMsg,flashNotice]=useMsg();
 
   const loadMembers=useCallback(async()=>{
@@ -540,13 +541,19 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
     await supabase.from("members").delete().eq("id",id);loadMembers();onRefresh();
   }
   async function addNotice(){
-    const title=noticeForm.title.trim(),content=noticeForm.content.trim();
-    if(!title||!content){flashNotice("err",t(lang,"fillAll"));return;}
-    const payload={title,content,language:noticeForm.language||"all"};
-    if(noticeForm.video_url.trim())payload.video_url=noticeForm.video_url.trim();
-    const{error}=await supabase.from("notices").insert(payload);
+    const langs=["all","en","de","es","ro","ru"];
+    const rows=langs
+      .map(l=>({lang:l,...noticeForm[l]}))
+      .filter(r=>r.title?.trim()&&r.content?.trim());
+    if(rows.length===0){flashNotice("err",t(lang,"fillAll"));return;}
+    const inserts=rows.map(r=>{
+      const p={title:r.title.trim(),content:r.content.trim(),language:r.lang};
+      if(r.video_url?.trim())p.video_url=r.video_url.trim();
+      return p;
+    });
+    const{error}=await supabase.from("notices").insert(inserts);
     if(error){flashNotice("err",error.message);return;}
-    setNoticeForm({title:"",content:"",language:"all",video_url:""});flashNotice("ok",t(lang,"noticeAdded"));onRefresh();
+    setNoticeForm(initNoticeForm());flashNotice("ok",t(lang,"noticeAdded"));onRefresh();
   }
   async function deleteNotice(id){
     await supabase.from("notices").delete().eq("id",id);
@@ -757,25 +764,51 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
         {/* 공지사항 관리 */}
         {activeTab==="notices"&&(<>
           <Msg state={noticeMsg}/>
-          <div style={{background:C.blueLight,border:`1px solid ${C.blueMid}`,borderRadius:12,padding:"16px",marginBottom:20}}>
-            <div style={{fontSize:11,fontWeight:800,color:C.blue,letterSpacing:"0.1em",marginBottom:12}}>{t(lang,"addNotice")}</div>
-            {/* 언어 선택 */}
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:12,fontWeight:600,color:C.textMid,marginBottom:8}}>{t(lang,"noticeLang")}</div>
-              <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                {[{val:"all",label:t(lang,"noticeLangAll")},{val:"en",label:"EN"},{val:"de",label:"DE"},{val:"es",label:"ES"},{val:"ro",label:"RO"},{val:"ru",label:"RU"}].map(opt=>(
-                  <button key={opt.val} onClick={()=>setNoticeForm(p=>({...p,language:opt.val}))}
-                    style={{padding:"7px 14px",borderRadius:20,border:`1.5px solid ${noticeForm.language===opt.val?C.blue:C.border}`,background:noticeForm.language===opt.val?C.blue:"none",color:noticeForm.language===opt.val?C.white:C.textMid,fontWeight:noticeForm.language===opt.val?700:500,fontSize:13,cursor:"pointer"}}>
+          {/* 언어별 탭 입력 폼 */}
+          <div style={{background:C.blueLight,border:`1px solid ${C.blueMid}`,borderRadius:14,marginBottom:20,overflow:"hidden"}}>
+            <div style={{padding:"14px 16px 0",fontSize:11,fontWeight:800,color:C.blue,letterSpacing:"0.1em"}}>{t(lang,"addNotice")}</div>
+            {/* 언어 탭 */}
+            <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch",borderBottom:`1px solid ${C.blueMid}`,marginTop:12}}>
+              {[{val:"all",label:t(lang,"noticeLangAll")},{val:"en",label:"🇬🇧 EN"},{val:"de",label:"🇩🇪 DE"},{val:"es",label:"🇪🇸 ES"},{val:"ro",label:"🇷🇴 RO"},{val:"ru",label:"🇷🇺 RU"}].map(opt=>{
+                const filled=noticeForm[opt.val]?.title?.trim()||noticeForm[opt.val]?.content?.trim();
+                return(
+                  <button key={opt.val} onClick={()=>setNoticeForm(p=>({...p,_tab:opt.val}))}
+                    style={{flexShrink:0,background:noticeForm._tab===opt.val?"#fff":"none",border:"none",borderBottom:noticeForm._tab===opt.val?`2.5px solid ${C.blue}`:"2.5px solid transparent",padding:"10px 14px",fontSize:13,fontWeight:noticeForm._tab===opt.val?700:500,color:noticeForm._tab===opt.val?C.blue:C.textMid,cursor:"pointer",whiteSpace:"nowrap",position:"relative"}}>
                     {opt.label}
+                    {filled&&<span style={{width:7,height:7,background:C.green,borderRadius:"50%",position:"absolute",top:8,right:6,display:"inline-block"}}/>}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-            <input style={{...S.input,marginBottom:10}} placeholder={t(lang,"noticeTitle")} value={noticeForm.title} onChange={e=>setNoticeForm(p=>({...p,title:e.target.value}))}/>
-            <textarea style={{...S.input,minHeight:80,resize:"vertical",marginBottom:10}} placeholder={t(lang,"noticeContent")} value={noticeForm.content} onChange={e=>setNoticeForm(p=>({...p,content:e.target.value}))}/>
-            <input style={{...S.input,marginBottom:12}} placeholder={t(lang,"noticeVideoUrlPlaceholder")} value={noticeForm.video_url} onChange={e=>setNoticeForm(p=>({...p,video_url:e.target.value}))}/>
-            <button style={S.btnBlue} onClick={addNotice}>{t(lang,"addNotice")}</button>
+            {/* 현재 탭 입력 필드 */}
+            {[{val:"all",label:t(lang,"noticeLangAll")},{val:"en",label:"EN"},{val:"de",label:"DE"},{val:"es",label:"ES"},{val:"ro",label:"RO"},{val:"ru",label:"RU"}].map(opt=>
+              noticeForm._tab===opt.val&&(
+                <div key={opt.val} style={{padding:"14px 16px 16px"}}>
+                  <div style={{fontSize:12,color:C.textMid,marginBottom:10,fontWeight:600}}>
+                    {opt.label} — {t(lang,"noticeTitle")} / {t(lang,"noticeContent")}
+                  </div>
+                  <input style={{...S.input,marginBottom:10,background:"#fff"}}
+                    placeholder={t(lang,"noticeTitle")}
+                    value={noticeForm[opt.val]?.title||""}
+                    onChange={e=>setNoticeForm(p=>({...p,[opt.val]:{...p[opt.val],title:e.target.value}}))}/>
+                  <textarea style={{...S.input,minHeight:80,resize:"vertical",marginBottom:10,background:"#fff"}}
+                    placeholder={t(lang,"noticeContent")}
+                    value={noticeForm[opt.val]?.content||""}
+                    onChange={e=>setNoticeForm(p=>({...p,[opt.val]:{...p[opt.val],content:e.target.value}}))}/>
+                  <input style={{...S.input,marginBottom:0,background:"#fff"}}
+                    placeholder={t(lang,"noticeVideoUrlPlaceholder")}
+                    value={noticeForm[opt.val]?.video_url||""}
+                    onChange={e=>setNoticeForm(p=>({...p,[opt.val]:{...p[opt.val],video_url:e.target.value}}))}/>
+                </div>
+              )
+            )}
+            {/* 저장 버튼 */}
+            <div style={{padding:"0 16px 16px",display:"flex",justifyContent:"flex-end"}}>
+              <button style={S.btnBlue} onClick={addNotice}>{t(lang,"addNotice")}</button>
+            </div>
           </div>
+
+          {/* 공지 목록 */}
           {notices.length===0
             ?<div style={{color:C.textSoft,fontSize:13,textAlign:"center",padding:"24px 0"}}>{t(lang,"noNotices")}</div>
             :notices.map(n=>(
