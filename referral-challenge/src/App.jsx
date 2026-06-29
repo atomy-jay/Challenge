@@ -511,6 +511,7 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
   const[rankTab,setRankTab]=useState("overall");
   const initNoticeForm=()=>({_tab:"all",all:{title:"",content:"",video_url:""},en:{title:"",content:"",video_url:""},de:{title:"",content:"",video_url:""},es:{title:"",content:"",video_url:""},ro:{title:"",content:"",video_url:""},ru:{title:"",content:"",video_url:""}});
   const[noticeForm,setNoticeForm]=useState(initNoticeForm());
+  const[editingNotice,setEditingNotice]=useState(null); // 수정 중인 notice id
   const[noticeMsg,flashNotice]=useMsg();
 
   const loadMembers=useCallback(async()=>{
@@ -558,6 +559,31 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
   async function deleteNotice(id){
     await supabase.from("notices").delete().eq("id",id);
     flashNotice("ok",t(lang,"noticeDeleted"));onRefresh();
+  }
+  function startEditNotice(n){
+    // 해당 공지의 언어 탭으로 폼 세팅
+    const lk=n.language||"all";
+    setNoticeForm(p=>({
+      ...initNoticeForm(),
+      _tab:lk,
+      [lk]:{title:n.title||"",content:n.content||"",video_url:n.video_url||""},
+    }));
+    setEditingNotice(n.id);
+    // 폼 상단으로 스크롤
+    setTimeout(()=>document.getElementById("notice-form-top")?.scrollIntoView({behavior:"smooth",block:"start"}),100);
+  }
+  async function updateNotice(){
+    if(!editingNotice)return;
+    const lk=noticeForm._tab;
+    const title=noticeForm[lk]?.title?.trim();
+    const content=noticeForm[lk]?.content?.trim();
+    if(!title||!content){flashNotice("err",t(lang,"fillAll"));return;}
+    const payload={title,content,language:lk};
+    payload.video_url=noticeForm[lk]?.video_url?.trim()||"";
+    const{error}=await supabase.from("notices").update(payload).eq("id",editingNotice);
+    if(error){flashNotice("err",error.message);return;}
+    setNoticeForm(initNoticeForm());setEditingNotice(null);
+    flashNotice("ok","✅ Notice updated!");onRefresh();
   }
 
   function downloadExcel(){
@@ -765,15 +791,25 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
         {activeTab==="notices"&&(<>
           <Msg state={noticeMsg}/>
           {/* 언어별 탭 입력 폼 */}
-          <div style={{background:C.blueLight,border:`1px solid ${C.blueMid}`,borderRadius:14,marginBottom:20,overflow:"hidden"}}>
-            <div style={{padding:"14px 16px 0",fontSize:11,fontWeight:800,color:C.blue,letterSpacing:"0.1em"}}>{t(lang,"addNotice")}</div>
+          <div id="notice-form-top" style={{background:editingNotice?"#FFF8E6":C.blueLight,border:`1.5px solid ${editingNotice?C.gold:C.blueMid}`,borderRadius:14,marginBottom:20,overflow:"hidden"}}>
+            <div style={{padding:"14px 16px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <span style={{fontSize:11,fontWeight:800,color:editingNotice?C.gold:C.blue,letterSpacing:"0.1em"}}>
+                {editingNotice?"✏️ EDIT NOTICE":t(lang,"addNotice")}
+              </span>
+              {editingNotice&&(
+                <button onClick={()=>{setEditingNotice(null);setNoticeForm(initNoticeForm());}}
+                  style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,padding:"4px 10px",fontSize:12,color:C.textMid,cursor:"pointer"}}>
+                  ✕ Cancel
+                </button>
+              )}
+            </div>
             {/* 언어 탭 */}
             <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch",borderBottom:`1px solid ${C.blueMid}`,marginTop:12}}>
               {[{val:"all",label:t(lang,"noticeLangAll")},{val:"en",label:"🇬🇧 EN"},{val:"de",label:"🇩🇪 DE"},{val:"es",label:"🇪🇸 ES"},{val:"ro",label:"🇷🇴 RO"},{val:"ru",label:"🇷🇺 RU"}].map(opt=>{
                 const filled=noticeForm[opt.val]?.title?.trim()||noticeForm[opt.val]?.content?.trim();
                 return(
                   <button key={opt.val} onClick={()=>setNoticeForm(p=>({...p,_tab:opt.val}))}
-                    style={{flexShrink:0,background:noticeForm._tab===opt.val?"#fff":"none",border:"none",borderBottom:noticeForm._tab===opt.val?`2.5px solid ${C.blue}`:"2.5px solid transparent",padding:"10px 14px",fontSize:13,fontWeight:noticeForm._tab===opt.val?700:500,color:noticeForm._tab===opt.val?C.blue:C.textMid,cursor:"pointer",whiteSpace:"nowrap",position:"relative"}}>
+                    style={{flexShrink:0,background:noticeForm._tab===opt.val?"#fff":"none",border:"none",borderBottom:noticeForm._tab===opt.val?`2.5px solid ${editingNotice?C.gold:C.blue}`:"2.5px solid transparent",padding:"10px 14px",fontSize:13,fontWeight:noticeForm._tab===opt.val?700:500,color:noticeForm._tab===opt.val?(editingNotice?C.gold:C.blue):C.textMid,cursor:"pointer",whiteSpace:"nowrap",position:"relative"}}>
                     {opt.label}
                     {filled&&<span style={{width:7,height:7,background:C.green,borderRadius:"50%",position:"absolute",top:8,right:6,display:"inline-block"}}/>}
                   </button>
@@ -802,9 +838,13 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
                 </div>
               )
             )}
-            {/* 저장 버튼 */}
-            <div style={{padding:"0 16px 16px",display:"flex",justifyContent:"flex-end"}}>
-              <button style={S.btnBlue} onClick={addNotice}>{t(lang,"addNotice")}</button>
+            {/* 저장/수정 버튼 */}
+            <div style={{padding:"0 16px 16px",display:"flex",justifyContent:"flex-end",gap:8}}>
+              {editingNotice?(
+                <button style={{...S.btnBlue,background:C.gold,boxShadow:"0 3px 12px rgba(245,168,0,0.3)"}} onClick={updateNotice}>💾 Save Changes</button>
+              ):(
+                <button style={S.btnBlue} onClick={addNotice}>{t(lang,"addNotice")}</button>
+              )}
             </div>
           </div>
 
@@ -812,7 +852,7 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
           {notices.length===0
             ?<div style={{color:C.textSoft,fontSize:13,textAlign:"center",padding:"24px 0"}}>{t(lang,"noNotices")}</div>
             :notices.map(n=>(
-              <div key={n.id} style={{...S.card,marginBottom:12}}>
+              <div key={n.id} style={{...S.card,marginBottom:12,border:editingNotice===n.id?`2px solid ${C.gold}`:undefined}}>
                 <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
@@ -826,7 +866,10 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
                     {n.video_url&&<div style={{fontSize:12,color:C.blue,marginTop:6,wordBreak:"break-all",display:"flex",alignItems:"center",gap:5}}><span>▶</span>{n.video_url}</div>}
                     <div style={{fontSize:11,color:C.textSoft,marginTop:8}}>{new Date(n.created_at).toLocaleDateString()}</div>
                   </div>
-                  <button style={{...S.btnDanger,flexShrink:0}} onClick={()=>deleteNotice(n.id)}>{t(lang,"deleteNotice")}</button>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                    <button style={{...S.btnGhost,fontSize:13,padding:"6px 14px",borderColor:C.gold,color:C.gold}} onClick={()=>startEditNotice(n)}>✏️</button>
+                    <button style={S.btnDanger} onClick={()=>deleteNotice(n.id)}>{t(lang,"deleteNotice")}</button>
+                  </div>
                 </div>
               </div>
             ))
