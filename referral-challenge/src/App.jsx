@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
+import bcrypt from "bcryptjs";
 import { supabase } from "./supabase.js";
 import { LANGS, t } from "./i18n.js";
+
+// ── PASSWORD HELPERS ──────────────────────────────────────
+// bcrypt 해시는 항상 "$2"로 시작함 → 평문 비밀번호와 구분하는 기준
+function isHashed(pw){ return typeof pw==="string" && pw.startsWith("$2"); }
+async function hashPw(pw){ return bcrypt.hash(pw, 10); }
+async function verifyPw(inputPw, storedPw){
+  if(isHashed(storedPw)) return bcrypt.compare(inputPw, storedPw);
+  return inputPw===storedPw; // 기존 평문 비밀번호와 비교 (자동 전환용)
+}
 
 // ── DESIGN TOKENS ─────────────────────────────────────────
 const C = {
@@ -140,7 +150,8 @@ function SignupPage({lang,setLang,onSuccess,onBack}){
     try{
       const{data:dup}=await supabase.from("members").select("member_no,email").or(`member_no.eq.${m},email.eq.${e}`);
       if(dup&&dup.length>0){if(dup[0].member_no===m){flash("err",t(lang,"duplicateMemberNo",{val:m}));return;}flash("err",t(lang,"duplicateEmail"));return;}
-      const{data,error}=await supabase.from("members").insert({name:n,member_no:m,email:e,password:pw,mastership}).select().single();
+      const hashedPw=await hashPw(pw);
+      const{data,error}=await supabase.from("members").insert({name:n,member_no:m,email:e,password:hashedPw,mastership}).select().single();
       if(error)throw error;
       flash("ok",t(lang,"signupOk"));setTimeout(()=>onSuccess(data),1400);
     }catch(err){flash("err",err.message||t(lang,"errorGeneric"));}finally{setBusy(false);}
@@ -187,9 +198,16 @@ function LoginPage({lang,setLang,onSuccess,onSignup}){
     const m=memberNo.trim();if(!m||!pw){flash("err",t(lang,"fillAll"));return;}
     setBusy(true);
     try{
-      const{data,error}=await supabase.from("members").select("*").eq("member_no",m).eq("password",pw).maybeSingle();
+      const{data,error}=await supabase.from("members").select("*").eq("member_no",m).maybeSingle();
       if(error)throw error;
-      if(!data){const{data:ex}=await supabase.from("members").select("id").eq("member_no",m).maybeSingle();flash("err",ex?t(lang,"wrongPassword"):t(lang,"notRegistered"));return;}
+      if(!data){flash("err",t(lang,"notRegistered"));return;}
+      const ok=await verifyPw(pw,data.password);
+      if(!ok){flash("err",t(lang,"wrongPassword"));return;}
+      // 자동 전환: 평문 비밀번호였다면 로그인 성공 시 암호화해서 재저장
+      if(!isHashed(data.password)){
+        const newHash=await hashPw(pw);
+        await supabase.from("members").update({password:newHash}).eq("id",data.id);
+      }
       onSuccess(data);
     }catch(err){flash("err",err.message||t(lang,"errorGeneric"));}finally{setBusy(false);}
   }
@@ -286,7 +304,8 @@ function ForgotPasswordPage({lang,setLang,onBack}){
     try{
       const{data,error}=await supabase.from("members").select("id,name").eq("email",e).maybeSingle();
       if(error)throw error;if(!data){flash("err",t(lang,"emailNotFound"));return;}
-      const tempPw=gen();const{error:ue}=await supabase.from("members").update({password:tempPw}).eq("id",data.id);
+      const tempPw=gen();const hashedTemp=await hashPw(tempPw);
+      const{error:ue}=await supabase.from("members").update({password:hashedTemp}).eq("id",data.id);
       if(ue)throw ue;setNewPw(tempPw);flash("ok",t(lang,"tempPwIssued",{name:data.name}));
     }catch(err){flash("err",err.message||t(lang,"errorGeneric"));}finally{setBusy(false);}
   }
@@ -532,7 +551,8 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
     if(!n||!m||!e||!pw){flashAdmin("err",t(lang,"fillAll"));return;}
     if(!/^\d+$/.test(m)){flashAdmin("err",t(lang,"numbersOnlyNo"));return;}
     setAdminBusy(true);
-    const{error}=await supabase.from("members").insert({name:n,member_no:m,email:e,password:pw});
+    const hashedPw=await hashPw(pw);
+    const{error}=await supabase.from("members").insert({name:n,member_no:m,email:e,password:hashedPw});
     setAdminBusy(false);
     if(error){flashAdmin("err",error.code==="23505"?t(lang,"duplicateEntry"):error.message);return;}
     setNewM({name:"",member_no:"",email:"",password:""});
