@@ -162,7 +162,8 @@ function SignupPage({lang,setLang,onSuccess,onBack}){
         <div style={S.fieldWrap}>
           <label style={S.fieldLabel}>{t(lang,"mastership")}</label>
           <select value={form.mastership} onChange={set("mastership")} style={{...S.input,color:form.mastership?C.text:C.textSoft}}>
-            <option value="">{t(lang,"mastershipPlaceholder")}</option>
+            <option value="" disabled>{t(lang,"mastershipPlaceholder")}</option>
+            <option value="NONE">{t(lang,"noMastership")}</option>
             {["SM","DM","SRM","STM","RM","CM","IM"].map(ms=><option key={ms} value={ms}>{ms}</option>)}
           </select>
         </div>
@@ -652,7 +653,7 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
           <div key={i} style={{background:s.color+"12",border:`1.5px solid ${s.color}40`,borderRadius:12,padding:"10px 11px"}}>
             <div style={{fontSize:9,fontWeight:800,color:s.color,letterSpacing:"0.08em",marginBottom:5,textTransform:"uppercase"}}>{s.title}</div>
             <div style={{fontWeight:700,fontSize:13,color:C.text}}>
-              {s.member.mastership&&<span style={{background:s.color,color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:700,marginRight:4}}>{s.member.mastership}</span>}
+              {s.member.mastership&&s.member.mastership!=="NONE"&&<span style={{background:s.color,color:"#fff",borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:700,marginRight:4}}>{s.member.mastership}</span>}
               {s.member.name}
             </div>
             <div style={{fontSize:10,color:C.textSoft}}>#{s.member.member_no}</div>
@@ -694,7 +695,7 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
                 <MedalBadge rank={i+1}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                    {m.mastership&&<span style={{background:C.blue,color:C.white,borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700,flexShrink:0}}>{m.mastership}</span>}
+                    {m.mastership&&m.mastership!=="NONE"&&<span style={{background:C.blue,color:C.white,borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700,flexShrink:0}}>{m.mastership}</span>}
                     <span style={{fontWeight:600,fontSize:15,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</span>
                   </div>
                   <div style={{fontSize:12,color:C.textSoft,marginTop:2}}>#{m.member_no}</div>
@@ -731,7 +732,7 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
                     return(<tr key={m.id}>
                       <td style={{...S.td,fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{m.name}</td>
                       <td style={{...S.td,fontFamily:"monospace",color:C.textMid,whiteSpace:"nowrap"}}>{m.member_no}</td>
-                      <td style={S.td}>{m.mastership?<span style={{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueMid}`,borderRadius:8,padding:"2px 7px",fontSize:11,fontWeight:700}}>{m.mastership}</span>:<span style={{color:C.textSoft}}>—</span>}</td>
+                      <td style={S.td}>{m.mastership&&m.mastership!=="NONE"?<span style={{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueMid}`,borderRadius:8,padding:"2px 7px",fontSize:11,fontWeight:700}}>{m.mastership}</span>:<span style={{color:C.textSoft}}>—</span>}</td>
                       <td style={S.td}><span style={{color:C.orange,fontWeight:700}}>{m.distribution_count}</span></td>
                       <td style={S.td}><span style={{color:C.blue,fontWeight:700}}>{m.consumer_count}</span></td>
                       <td style={S.td}><span style={{color:C.purple,fontWeight:700}}>{m.seminar_count}</span></td>
@@ -773,7 +774,7 @@ function AdminPanel({lang,ranking,allNums,notices,onRefresh}){
                     <td style={{...S.td,fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{m.name}</td>
                     <td style={{...S.td,fontFamily:"monospace",color:C.textMid,whiteSpace:"nowrap"}}>{m.member_no}</td>
                     <td style={{...S.td,color:C.textSoft,fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.email}</td>
-                    <td style={S.td}>{m.mastership?<span style={{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueMid}`,borderRadius:8,padding:"2px 7px",fontSize:11,fontWeight:700}}>{m.mastership}</span>:<span style={{color:C.textSoft}}>—</span>}</td>
+                    <td style={S.td}>{m.mastership&&m.mastership!=="NONE"?<span style={{background:C.blueLight,color:C.blue,border:`1px solid ${C.blueMid}`,borderRadius:8,padding:"2px 7px",fontSize:11,fontWeight:700}}>{m.mastership}</span>:<span style={{color:C.textSoft}}>—</span>}</td>
                     <td style={S.td}><span style={{color:C.orange,fontWeight:700}}>{refs.filter(r=>r.type==="distribution").length}</span></td>
                     <td style={S.td}><span style={{color:C.blue,fontWeight:700}}>{refs.filter(r=>r.type==="consumer").length}</span></td>
                     <td style={S.td}><span style={{color:C.purple,fontWeight:700}}>{refs.filter(r=>r.seminar).length}</span></td>
