@@ -370,6 +370,7 @@ function MainPage({user,lang,setLang,onLogout}){
   async function addNum(){
     const val=numInput.trim();if(!val)return;
     if(!/^\d{8}$/.test(val)){flashRef("err",t(lang,"numbersOnly"));return;}
+    if(parseInt(val,10)<=48643088){flashRef("err",t(lang,"memberNoTooOld")||`Member ID must be 48643089 or higher.`);return;}
     if(allNums.has(val)){
       const isMine=myRefs.some(r=>r.referred_no===val);
       if(isMine){flashRef("err",t(lang,"alreadyMine",{val}));return;}
